@@ -1,0 +1,300 @@
+---
+title: "data mining"
+author: "Suneeth Ravilla"
+date: "5/2/2020"
+output:
+  word_document: default
+  html_document: default
+---
+```{r}
+setwd("C:/Users/rvssu/Downloads/DataMining")
+source("myfunctions.R")
+source("confusionMatrixFunctions.R")
+```
+
+```{r}
+GERMAN_DATA = read.csv("C:/Users/rvssu/Downloads/DataMining/Project/GERMAN_DATA.csv")
+```
+
+
+```{r}
+GERMAN_DATA[!complete.cases(GERMAN_DATA),]
+```
+
+```{r}
+summary(GERMAN_DATA)
+```
+
+# Logistic model
+
+```{r}
+data3 = GERMAN_DATA
+```
+
+
+```{r}
+data3$PHONE = factor(data3$PHONE, levels = c('A191','A192'), labels = c(1,2))
+data3$FRGN_WORKR = factor(data3$FRGN_WORKR, levels = c('A201','A202'), labels = c(1,2))
+
+data3$COAPP_GURNTR = factor(data3$COAPP_GURNTR, levels = c('A101','A102','A103'), labels = c(1,2,3))
+data3$OTHR_INSTL = factor(data3$OTHR_INSTL, levels = c('A141','A142','A143'), labels = c(1,2,3))
+data3$HOUS_ST = factor(data3$HOUS_ST, levels = c('A151','A152','A153'), labels = c(1,2,3))
+
+data3$CHK_ACCT_ST = factor(data3$CHK_ACCT_ST, levels = c('A11','A12','A13','A14'), labels = c(1,2,3,4))
+data3$PERS_ST_SEX = factor(data3$PERS_ST_SEX, levels = c('A91','A92','A93','A94'), labels = c(1,2,3,4))
+data3$PROPERTY = factor(data3$PROPERTY, levels = c('A121','A122','A123','A124'), labels = c(1,2,3,4))
+data3$JOB = factor(data3$JOB, levels = c('A171','A172','A173','A174'), labels = c(1,2,3,4))
+
+data3$CRED_HIST = factor(data3$CRED_HIST, levels = c('A30','A31','A32','A33','A34'), labels = c(1,2,3,4,5))
+data3$SAV_ACCT_BOND = factor(data3$SAV_ACCT_BOND, levels = c('A61','A62','A63','A64','A65'), labels = c(1,2,3,4,5))
+data3$EMPLYMT_ST = factor(data3$EMPLYMT_ST, levels = c('A71','A72','A73','A74','A75'), labels = c(1,2,3,4,5))
+
+data3$PURPOSE = factor(data3$PURPOSE, levels = c('A40','A41','A42','A43','A44','A45','A46','A48','A49','A410'), labels = c(1,2,3,4,5,6,7,8,9,10))
+```
+
+```{r}
+data3$Y = ifelse(data3$Y =="2",1,0)
+data3$Y = as.factor(data3$Y)
+```
+
+```{r}
+set.seed(0)
+p2 <- partition.2(data3, 0.7)
+data3.train <- p2$data.train
+data3.val <- p2$data.val
+```
+
+```{r}
+logistic = glm(Y~.-PHONE - PERS_ST_SEX,family=binomial(link='logit'),data = data3.train)
+summary(logistic)
+```
+
+
+```{r}
+library(stats)
+logistic.m2.step = step(logistic)
+summary(logistic.m2.step)
+```
+
+
+```{r}
+pred.val <- predict(logistic.m2.step, newdata = data3.val,type = "response")
+```
+
+```{r}
+# Asymmetric missclassification
+cost.ratio <- 5
+# create a vector for cutoff 
+cutoff <- seq(0.01, 0.5, 0.05)
+# create an empty vector of same lengthmiss
+missclassification.cost <- rep(NA, length(cutoff))
+# calculate missclassification cost for each cutoff value
+for(i in 1:length(cutoff)){
+  res.conf <- conf(data3.val$Y,
+pred.val, cutoff[i])
+missclassification.cost[i] <- res.conf$conf.mat[2,1] +res.conf$conf.mat[1,2]*cost.ratio
+}
+# create a plot for cutoff vs. cost
+plot(cutoff, missclassification.cost, main = "cost curve",xlab = "cutoff", ylab = "miss classification cost",type = "l")
+```
+
+```{r}
+conf(data3.val$Y,pred.val,0.21)
+```
+
+
+```{r}
+library(pROC)
+r= roc(data3.val$Y, pred.val)
+plot.roc(r)
+auc(r)
+```
+
+AUC value: 0.8132
+
+# Random Forest
+
+```{r}
+data4=GERMAN_DATA
+```
+```{r}
+data4$Y = ifelse(data4$Y =="2",1,0)
+data4$Y = as.factor(data4$Y)
+```
+```{r}
+data4$PHONE = factor(data4$PHONE, levels = c('A191','A192'), labels = c(1,2))
+data4$FRGN_WORKR = factor(data4$FRGN_WORKR, levels = c('A201','A202'), labels = c(1,2))
+
+data4$COAPP_GURNTR = factor(data4$COAPP_GURNTR, levels = c('A101','A102','A103'), labels = c(1,2,3))
+data4$OTHR_INSTL = factor(data4$OTHR_INSTL, levels = c('A141','A142','A143'), labels = c(1,2,3))
+data4$HOUS_ST = factor(data4$HOUS_ST, levels = c('A151','A152','A153'), labels = c(1,2,3))
+
+data4$CHK_ACCT_ST = factor(data4$CHK_ACCT_ST, levels = c('A11','A12','A13','A14'), labels = c(1,2,3,4))
+data4$PERS_ST_SEX = factor(data4$PERS_ST_SEX, levels = c('A91','A92','A93','A94'), labels = c(1,2,3,4))
+data4$PROPERTY = factor(data4$PROPERTY, levels = c('A121','A122','A123','A124'), labels = c(1,2,3,4))
+data4$JOB = factor(data4$JOB, levels = c('A171','A172','A173','A174'), labels = c(1,2,3,4))
+
+data4$CRED_HIST = factor(data4$CRED_HIST, levels = c('A30','A31','A32','A33','A34'), labels = c(1,2,3,4,5))
+data4$SAV_ACCT_BOND = factor(data4$SAV_ACCT_BOND, levels = c('A61','A62','A63','A64','A65'), labels = c(1,2,3,4,5))
+data4$EMPLYMT_ST = factor(data4$EMPLYMT_ST, levels = c('A71','A72','A73','A74','A75'), labels = c(1,2,3,4,5))
+
+data4$PURPOSE = factor(data4$PURPOSE, levels = c('A40','A41','A42','A43','A44','A45','A46','A48','A49','A410'), labels = c(1,2,3,4,5,6,7,8,9,10))
+```
+
+
+```{r}
+library(scales)
+data4$DUR = rescale(data4$DUR)
+data4$INST_RT_PER_DISP_INCM = rescale(data4$INST_RT_PER_DISP_INCM)
+data4$DUR_RES = rescale(data4$DUR_RES)
+data4$AGE = rescale(data4$AGE)
+data4$NUM_CRED= rescale(data4$NUM_CRED)
+data4$NUM_PEOP_LIABL = rescale(data4$NUM_PEOP_LIABL)
+data4$CRED_AMT = rescale(data4$CRED_AMT)
+```
+
+```{r}
+set.seed(0)
+p2 <- partition.2(data4, 0.7)
+data4.train <- p2$data.train
+data4.val <- p2$data.val
+```
+
+```{r}
+library(randomForest)
+set.seed(123)
+rndfrt= randomForest(Y~.-PHONE -PERS_ST_SEX,data=data4.train,ntree=500,type = "classification")
+rndfrt
+```
+
+```{r}
+err_rate = rndfrt$err.rate
+head(err_rate)
+```
+
+```{r}
+oob_err <- err_rate[nrow(err_rate), "OOB"]
+print(oob_err)
+```
+
+
+```{r}
+plot(rndfrt)
+legend(x = "right", 
+       legend = colnames(err_rate),
+       fill = 1:ncol(err_rate))
+varImpPlot(rndfrt)
+```
+
+```{r}
+rndfrt_pred = predict(rndfrt, newdata = data4.val,type = "response")
+```
+
+```{r}
+cm = conf(rndfrt_pred,data4.val$Y)
+print(cm)
+```
+
+```{r}
+paste0("Test Accuracy: ", cm$accuracy)
+paste0("OOB Accuracy: ", 1 - oob_err)
+```
+
+```{r}
+rndfrt_predprob = predict(rndfrt,data4.val,type = "prob",probability =TRUE)
+auc(ifelse(data4.val$Y == "0",1, 0), rndfrt_predprob[,"1"])
+```
+
+```{r}
+result.roc <- roc(data4.val$Y, rndfrt_predprob[,"1"]) # Draw ROC curve.
+plot(result.roc)
+```
+
+
+# Decision tree
+
+```{r}
+data5 = GERMAN_DATA
+```
+
+```{r}
+data5$Y = ifelse(data5$Y =="2",1,0)
+data5$Y = as.factor(data5$Y)
+```
+
+```{r}
+data5 = data5[,-c(9,19)]
+```
+
+```{r}
+data5$FRGN_WORKR = factor(data5$FRGN_WORKR, levels = c('A201','A202'), labels = c(1,2))
+
+data5$COAPP_GURNTR = factor(data5$COAPP_GURNTR, levels = c('A101','A102','A103'), labels = c(1,2,3))
+data5$OTHR_INSTL = factor(data5$OTHR_INSTL, levels = c('A141','A142','A143'), labels = c(1,2,3))
+data5$HOUS_ST = factor(data5$HOUS_ST, levels = c('A151','A152','A153'), labels = c(1,2,3))
+
+data5$CHK_ACCT_ST = factor(data5$CHK_ACCT_ST, levels = c('A11','A12','A13','A14'), labels = c(1,2,3,4))
+data5$PROPERTY = factor(data5$PROPERTY, levels = c('A121','A122','A123','A124'), labels = c(1,2,3,4))
+data5$JOB = factor(data5$JOB, levels = c('A171','A172','A173','A174'), labels = c(1,2,3,4))
+
+data5$CRED_HIST = factor(data5$CRED_HIST, levels = c('A30','A31','A32','A33','A34'), labels = c(1,2,3,4,5))
+data5$SAV_ACCT_BOND = factor(data5$SAV_ACCT_BOND, levels = c('A61','A62','A63','A64','A65'), labels = c(1,2,3,4,5))
+data5$EMPLYMT_ST = factor(data5$EMPLYMT_ST, levels = c('A71','A72','A73','A74','A75'), labels = c(1,2,3,4,5))
+
+data5$PURPOSE = factor(data5$PURPOSE, levels = c('A40','A41','A42','A43','A44','A45','A46','A48','A49','A410'), labels = c(1,2,3,4,5,6,7,8,9,10))
+```
+```{r}
+set.seed(0)
+p2 <- partition.2(data5, 0.7)
+data5.train <- p2$data.train
+data5.val <- p2$data.val
+```
+
+
+```{r}
+library(rpart)
+library(rpart.plot)
+```
+
+```{r}
+ct1 <- rpart(Y ~ . , data = data5.train, method = "class")
+ct1
+```
+
+```{r}
+prp(ct1, type = 1, extra = 1, under = TRUE, split.font = 2, varlen = -10)
+```
+
+
+```{r}
+pred.val = predict(ct1, data5.val, type = 'class')
+conf(data5.val$Y, pred.val) 
+```
+
+```{r}
+cv.ct <- rpart(Y ~ . , data = data5.train, method = "class", cp = 0.00001, minsplit = 5, xval = 5)
+printcp(cv.ct)
+```
+
+
+```{r}
+prune.ct <- prune(cv.ct, cp = cv.ct$cptable[which.min(cv.ct$cptable[,"xerror"]), "CP"])
+print(prune.ct)
+```
+
+
+```{r}
+prp(prune.ct, type = 1, extra = 1, under = TRUE, split.font = 2, varlen = -10)
+```
+
+
+```{r}
+pred.val = predict(prune.ct, data5.val, type = 'class')
+conf(data5.val$Y, pred.val)
+```
+
+
+```{r}
+dt = predict(prune.ct,data5.val,type = "prob",probability =TRUE)
+auc(ifelse(data5.val$Y == "0",1, 0), dt[,"1"])
+```
